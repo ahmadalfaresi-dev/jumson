@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="html-root">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BF Tools - China & Syria B2B Cloud Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for Excel Import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- html2pdf for PDF Exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Supabase JS Client SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .brand-gradient { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+        .card-bright { background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05); }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800">
+
+    <!-- Header / Brand Bar -->
+    <header class="brand-gradient border-b border-slate-700 shadow-lg sticky top-0 z-40 text-white">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-red-600 to-rose-500 flex items-center justify-center shadow-lg shadow-red-500/30 text-white font-black text-xl italic tracking-tighter">
+                    BF
+                </div>
+                <div>
+                    <h1 class="text-lg font-black tracking-wider text-white flex items-center gap-2">
+                        <span id="brand-title">BF TOOLS & GARAGE EQUIPMENT</span>
+                    </h1>
+                    <p class="text-xs text-red-300 font-semibold" id="brand-subtitle">نظام إدارة الطلبيات الذكية السحابي</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- User Role Switcher -->
+                <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 shadow-inner">
+                    <span class="text-xs text-slate-300" id="label-user">المستخدم:</span>
+                    <select id="role-selector" onchange="switchRole(this.value)" class="bg-transparent text-red-400 text-xs font-bold focus:outline-none cursor-pointer">
+                        <option value="Ahmad" class="bg-slate-900 text-white">أحمد (مستورد - مدير)</option>
+                        <option value="Bakri" class="bg-slate-900 text-white">بكري (مستورد - إدخال)</option>
+                        <option value="James" class="bg-slate-900 text-white">James (Supplier - China)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div id="pdf-report-content" class="max-w-7xl mx-auto px-4 py-8">
+
+        <!-- Status Filter Tabs & Financial Summary -->
+        <div class="card-bright p-6 rounded-3xl mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-100 pb-4">
+                <div>
+                    <h3 class="font-bold text-slate-900 flex items-center gap-2 text-base">
+                        <i class="fa-solid fa-filter text-red-600"></i> <span id="sec-filter-title">تصفية الطلبيات (قوائم المتابعة)</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1" id="sec-filter-desc">متابعة دقيقة للطلبيات، قيد التصنيع، جاهزة، في البحر، Backlog، والمستلمة التي بها مشاكل</p>
+                </div>
+                <!-- Status Filter Buttons -->
+                <div class="flex flex-wrap gap-1.5" id="status-filters">
+                    <button onclick="filterStatus('all')" id="filter-all" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-600 text-white shadow-md shadow-red-600/20 transition-all">الكل / All</button>
+                    <button onclick="filterStatus('معلقة')" id="filter-pend" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">معلقة / Pending</button>
+                    <button onclick="filterStatus('قيد التصنيع')" id="filter-prod" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">قيد التصنيع / In Production</button>
+                    <button onclick="filterStatus('بضائع جاهزة')" id="filter-ready" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">جاهزة / Ready</button>
+                    <button onclick="filterStatus('في البحر')" id="filter-sea" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">في البحر / In Transit</button>
+                    <button onclick="filterStatus('مراد شحنها لاحقا')" id="filter-later" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all">Backlog</button>
+                    <button onclick="filterStatus('مستلمة بها مشكلة')" id="filter-issue" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-all">بضائع بها مشكلة / Issue</button>
+                    <button onclick="filterStatus('مستلمة')" id="filter-recv" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all">مستلمة / Received</button>
+                    <button onclick="filterStatus('ملغاة')" id="filter-canc" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">ملغاة / Cancelled</button>
+                </div>
+            </div>
+
+            <!-- Financial Summary Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 text-center">
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <p class="text-xs text-slate-500 uppercase font-semibold" id="lbl-c1">سقف التسهيلات الائتمانية</p>
+                    <h4 class="text-xl font-bold text-slate-800 mt-1">$125,000.00</h4>
+                </div>
+                <div class="bg-red-50/50 p-4 rounded-2xl border border-red-100 shadow-sm">
+                    <p class="text-xs text-red-600 uppercase font-semibold" id="lbl-c2">إجمالي قيمة الطلبيات</p>
+                    <h4 id="stat-shipment-val" class="text-xl font-bold text-red-600 mt-1">$0.00</h4>
+                </div>
+                <div class="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 shadow-sm">
+                    <p class="text-xs text-emerald-600 uppercase font-semibold" id="lbl-c3">إجمالي المدفوعات المحولة</p>
+                    <h4 id="stat-total-paid" class="text-xl font-bold text-emerald-600 mt-1">$0.00</h4>
+                </div>
+                <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 shadow-sm">
+                    <p class="text-xs text-blue-600 uppercase font-semibold" id="lbl-c4">صافي رصيد المعمل المتبقي</p>
+                    <h4 id="stat-net-balance" class="text-xl font-bold text-blue-600 mt-1">$0.00</h4>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 no-print">
+            <div>
+                <h2 id="view-title" class="text-2xl font-black text-slate-900 tracking-tight">إدارة المواد والطلبيات المباشرة</h2>
+                <p id="view-desc" class="text-sm text-slate-500 mt-0.5">استيراد إكسل، استلام الشحنات وتحديد المشاكل، وتعديل الصور.</p>
+            </div>
+            <div class="flex flex-wrap gap-2.5" id="action-buttons">
+                <button onclick="openNewOrderModal()" id="btn-add-order" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-2xl shadow-lg shadow-red-600/30 font-medium flex items-center gap-2 transition-all text-sm">
+                    <i class="fa-solid fa-plus-circle"></i> <span id="txt-add-ord">+ إضافة طلبية جديدة</span>
+                </button>
+                <label id="btn-import-excel" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-2xl shadow-sm font-medium flex items-center gap-2 transition-all text-sm cursor-pointer">
+                    <i class="fa-solid fa-file-excel text-emerald-600"></i> <span id="txt-imp-exc">استيراد إكسل (مع تحديد النوع)</span>
+                    <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" onchange="promptExcelImportType(event)" class="hidden">
+                </label>
+                <button onclick="openCatalogModal()" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-2xl shadow-sm font-medium flex items-center gap-2 transition-all text-sm">
+                    <i class="fa-solid fa-boxes-stacked text-blue-600"></i> <span id="txt-cat">قائمة الكتالوج المفصل</span>
+                </button>
+                <button onclick="exportPDFReport()" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-2xl shadow-sm font-medium flex items-center gap-2 transition-all text-sm">
+                    <i class="fa-solid fa-file-pdf text-rose-600"></i> <span id="txt-pdf">تصدير تقرير PDF</span>
+                </button>
+                <button onclick="openPaymentModal()" id="btn-payment" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-2xl shadow-sm font-medium flex items-center gap-2 transition-all text-sm">
+                    <i class="fa-solid fa-receipt text-blue-600"></i> <span id="txt-pay">+ إضافة دفعة مالية</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="card-bright rounded-3xl overflow-hidden mb-8">
+            <div class="p-4 bg-slate-50/80 border-b border-slate-200 font-bold text-slate-700 text-sm flex justify-between items-center">
+                <span id="tbl-title">جدول الطلبيات النشطة وإدارة استلام الشحنات</span>
+                <span class="text-xs text-slate-400 font-normal" id="tbl-sub">يمكنك تحديد الشحنات المستلمة التي بها مشاكل ليراجعها جيمس</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right border-collapse" id="main-table">
+                    <thead>
+                        <tr class="bg-slate-100/70 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            <th class="py-3.5 px-4" id="th-img">الصورة</th>
+                            <th class="py-3.5 px-4" id="th-sku">رقم القطعة (Item No)</th>
+                            <th class="py-3.5 px-4" id="th-name-ar">اسم المادة (عربي)</th>
+                            <th class="py-3.5 px-4" id="th-name-en">Item Name (English)</th>
+                            <th class="py-3.5 px-4" id="th-qty">الكمية المطلوبة</th>
+                            <th class="py-3.5 px-4" id="th-ready">الكمية الجاهزة</th>
+                            <th class="py-3.5 px-4" id="th-price">سعر المصنع ($)</th>
+                            <th class="py-3.5 px-4" id="th-date">تاريخ الجاهزية / الشحن</th>
+                            <th class="py-3.5 px-4" id="th-status">الحالة</th>
+                            <th class="py-3.5 px-4 text-left no-print" id="th-act">الإجراءات والترحيل</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body" class="divide-y divide-slate-100 text-sm">
+                        <!-- Dynamic rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Order -->
+    <div id="new-order-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-lg w-full p-6 relative">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-cart-plus text-red-600"></i> إضافة طلبية جديدة</h3>
+                <button onclick="closeNewOrderModal()" class="text-slate-400 hover:text-slate-700 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveNewOrder(event)" class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">اختر أو أدخل رقم القطعة (Item No)</label>
+                    <select id="select-catalog-sku" onchange="onSelectCatalogItem(this.value)" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm mb-2 focus:outline-none focus:border-red-500">
+                        <option value="">-- اختر من الكتالوج المسجل --</option>
+                    </select>
+                    <input type="text" id="order-sku" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm font-mono focus:outline-none focus:border-red-500" placeholder="Item No...">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 uppercase mb-1">اسم المادة (عربي)</label>
+                        <input type="text" id="order-name-ar" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500" placeholder="اسم المادة بالعربي...">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 uppercase mb-1">Item Name (English)</label>
+                        <input type="text" id="order-name-en" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500" placeholder="English name...">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 uppercase mb-1">الكمية المطلوبة</label>
+                        <input type="number" id="order-qty" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500" placeholder="500">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 uppercase mb-1">تاريخ الجاهزية المتوقع</label>
+                        <input type="date" id="order-eta" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">حالة الطلبية</label>
+                    <select id="order-status" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500">
+                        <option value="معلقة">معلقة (Pending)</option>
+                        <option value="قيد التصنيع">قيد التصنيع (In Production)</option>
+                        <option value="بضائع جاهزة">بضائع جاهزة (Goods Ready)</option>
+                        <option value="في البحر">في البحر (In Transit)</option>
+                        <option value="مراد شحنها لاحقا">مراد شحنها لاحقاً (Backlog)</option>
+                        <option value="مستلمة">مستلمة (Received)</option>
+                        <option value="مستلمة بها مشكلة">مستلمة بها مشكلة (Received with Issue)</option>
+                        <option value="ملغاة">ملغاة (Cancelled)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">رابط صورة الصنف (Image URL)</label>
+                    <input type="text" id="order-image" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500" placeholder="https://...">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeNewOrderModal()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl font-medium hover:bg-slate-50">إلغاء</button>
+                    <button type="submit" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium shadow-md shadow-red-600/20">حفظ الطلبية</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Catalog Modal with Detailed Quantities & Status Breakdown -->
+    <div id="catalog-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-5xl w-full p-6 relative max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-boxes-stacked text-blue-600"></i> <span id="cat-modal-title">الكتالوج الشامل وتحليل كميات الطلبيات والشحنات لكل صنف</span></h3>
+                <button onclick="closeCatalogModal()" class="text-slate-400 hover:text-slate-700 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-1 gap-4" id="catalog-grid"></div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-md w-full p-6 relative">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-receipt text-red-600"></i> إضافة دفعة مالية جديدة</h3>
+                <button onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-700 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="savePayment(event)" class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">مبلغ الدفعة ($)</label>
+                    <input type="number" step="0.01" id="pay-amount" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500" placeholder="15000">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">تاريخ الدفع</label>
+                    <input type="date" id="pay-date" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">رابط وصل الدفع</label>
+                    <input type="text" id="pay-receipt" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500" placeholder="https://...">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closePaymentModal()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl font-medium hover:bg-slate-50">إلغاء</button>
+                    <button type="submit" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium shadow-md shadow-red-600/20">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Core & Supabase Sync -->
+    <script>
+        const supabaseUrl = 'https://nyvufmokgdzbecqurgpz.supabase.co';
+        const supabaseKey = localStorage.getItem('supabase_anon_key') || prompt("Please enter your Supabase Anon Public Key:") || 'YOUR_SUPABASE_ANON_KEY';
+        localStorage.setItem('supabase_anon_key', supabaseKey);
+        
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+        let currentRole = 'Ahmad';
+        let currentFilter = 'all';
+        let facilityLimit = 125000;
+
+        let catalog = [];
+        let orders = [];
+        let payments = [];
+        let pendingImportEvent = null;
+
+        const dictionary = {
+            "tr414": { ar: "ولف اسود TR414", en: "Tubeless Snap-In Tire Valve TR414" },
+            "tr415": { ar: "ولف اسود بيجو TR415", en: "Peugeot Tire Valve TR415" },
+            "sp7": { ar: "ولف تركتور نحاس SP7", en: "Brass Tractor Valve SP7" },
+            "sbw005s": { ar: "اوزان بلانص حديد 5 غرام", en: "Steel Balance Weight 005g" },
+            "sbw010s": { ar: "اوزان بلانص حديد 10 غرام", en: "Steel Balance Weight 010g" },
+            "j21153": { ar: "ستاند رفع 3 طن", en: "Jack Stand 3 Ton" }
+        };
+
+        function autoTranslate(sku, desc) {
+            const cleanSku = (sku || "").toLowerCase().trim();
+            if (dictionary[cleanSku]) {
+                return dictionary[cleanSku];
+            }
+            return {
+                ar: desc || sku || "مادة جديدة",
+                en: desc || sku || "New Item"
+            };
+        }
+
+        async function fetchCloudData() {
+            try {
+                const { data, error } = await supabaseClient.from('app_data').select('*');
+                if (data && data.length > 0) {
+                    data.forEach(row => {
+                        if (row.id === 'orders') orders = row.data;
+                        if (row.id === 'payments') payments = row.data;
+                        if (row.id === 'catalog') catalog = row.data;
+                    });
+                } else {
+                    orders = [];
+                    catalog = [];
+                    payments = [];
+                    await saveCloudData();
+                }
+                renderOrders();
+                updateRoleUI();
+            } catch (err) {
+                console.error("Cloud fetch error:", err);
+            }
+        }
+
+        async function saveCloudData() {
+            try {
+                await supabaseClient.from('app_data').upsert([
+                    { id: 'orders', data: orders },
+                    { id: 'payments', data: payments },
+                    { id: 'catalog', data: catalog }
+                ]);
+            } catch (err) {
+                console.error("Cloud save error:", err);
+            }
+        }
+
+        function switchRole(role) {
+            currentRole = role;
+            updateRoleUI();
+            renderOrders();
+        }
+
+        function updateRoleUI() {
+            const htmlRoot = document.getElementById('html-root');
+            if (currentRole === 'James') {
+                htmlRoot.setAttribute('dir', 'ltr');
+                document.getElementById('brand-title').innerText = "BF TOOLS & GARAGE EQUIPMENT (SUPPLIER)";
+                document.getElementById('brand-subtitle').innerText = "Factory Portal - China";
+                document.getElementById('view-title').innerText = "Factory Production & Pricing Portal";
+                document.getElementById('view-desc').innerText = "Input factory prices, manage ready quantities, update status, and manage production items.";
+                document.getElementById('btn-add-order').style.display = 'none';
+                document.getElementById('btn-import-excel').style.display = 'none';
+                document.getElementById('btn-payment').style.display = 'none';
+
+                document.getElementById('label-user').innerText = "User:";
+                document.getElementById('sec-filter-title').innerText = "Filter Orders (Tracking & Issues)";
+                document.getElementById('sec-filter-desc').innerText = "Track pending, production, ready, transit, backlog, and received items with issues reported.";
+                document.getElementById('lbl-c1').innerText = "Credit Facility Limit";
+                document.getElementById('lbl-c2').innerText = "Total Orders Value";
+                document.getElementById('lbl-c3').innerText = "Total Paid Amount";
+                document.getElementById('lbl-c4').innerText = "Net Factory Balance";
+
+                document.getElementById('th-img').innerText = "Image";
+                document.getElementById('th-sku').innerText = "Item No (SKU)";
+                document.getElementById('th-name-ar').innerText = "Arabic Name";
+                document.getElementById('th-name-en').innerText = "English Name";
+                document.getElementById('th-qty').innerText = "Ordered Qty";
+                document.getElementById('th-ready').innerText = "Ready Qty";
+                document.getElementById('th-price').innerText = "Price ($)";
+                document.getElementById('th-date').innerText = "Ready Qty Update";
+                document.getElementById('th-status').innerText = "Status";
+                document.getElementById('th-act').innerText = "Actions & Delete";
+
+                document.getElementById('tbl-title').innerText = "Active Orders & Factory Production Table";
+                document.getElementById('tbl-sub').innerText = "James can review reported issues, update prices, ready quantities, status, or delete items.";
+            } else {
+                htmlRoot.setAttribute('dir', 'rtl');
+                document.getElementById('brand-title').innerText = "BF TOOLS & GARAGE EQUIPMENT";
+                document.getElementById('brand-subtitle').innerText = "نظام إدارة الطلبيات الذكية السحابي";
+                document.getElementById('view-title').innerText = currentRole === 'Bakri' ? "لوحة تصفح وإضافة الطلبيات (بكري)" : "إدارة المواد والطلبيات المباشرة (أحمد)";
+                document.getElementById('view-desc').innerText = "استيراد إكسل، استلام الشحنات وتحديد المشاكل، وتعديل الصور للجميع.";
+                document.getElementById('btn-add-order').style.display = 'flex';
+                document.getElementById('btn-import-excel').style.display = 'flex';
+                document.getElementById('btn-payment').style.display = currentRole === 'Ahmad' ? 'flex' : 'none';
+
+                document.getElementById('label-user').innerText = "المستخدم:";
+                document.getElementById('sec-filter-title').innerText = "تصفية الطلبيات (قوائم المتابعة)";
+                document.getElementById('sec-filter-desc').innerText = "متابعة دقيقة للطلبيات، قيد التصنيع، جاهزة، في البحر، Backlog، والمستلمة التي بها مشاكل.";
+                document.getElementById('lbl-c1').innerText = "سقف التسهيلات الائتمانية";
+                document.getElementById('lbl-c2').innerText = "إجمالي قيمة الطلبيات";
+                document.getElementById('lbl-c3').innerText = "إجمالي المدفوعات المحولة";
+                document.getElementById('lbl-c4').innerText = "صافي رصيد المعمل المتبقي";
+
+                document.getElementById('th-img').innerText = "الصورة";
+                document.getElementById('th-sku').innerText = "رقم القطعة (Item No)";
+                document.getElementById('th-name-ar').innerText = "اسم المادة (عربي)";
+                document.getElementById('th-name-en').innerText = "Item Name (English)";
+                document.getElementById('th-qty').innerText = "الكمية المطلوبة";
+                document.getElementById('th-ready').innerText = "الكمية الجاهزة";
+                document.getElementById('th-price').innerText = "سعر المصنع ($)";
+                document.getElementById('th-date').innerText = "تاريخ الجاهزية / الشحن";
+                document.getElementById('th-status').innerText = "الحالة";
+                document.getElementById('th-act').innerText = "الإجراءات والترحيل";
+
+                document.getElementById('tbl-title').innerText = "جدول الطلبيات النشطة وإدارة استلاستلام الشحنات";
+                document.getElementById('tbl-sub').innerText = "يمكنك تحديد الشحنات المستلمة التي بها مشاكل ليراجعها جيمس";
+            }
+        }
+
+        function filterStatus(status) {
+            currentFilter = status;
+            document.querySelectorAll('#status-filters button').forEach(btn => {
+                btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all";
+            });
+            const activeBtn = document.getElementById('filter-' + (status === 'all' ? 'all' : status === 'معلقة' ? 'pend' : status === 'قيد التصنيع' ? 'prod' : status === 'بضائع جاهزة' ? 'ready' : status === 'في البحر' ? 'sea' : status === 'مراد شحنها لاحقا' ? 'later' : status === 'مستلمة بها مشكلة' ? 'issue' : status === 'مستلمة' ? 'recv' : 'canc'));
+            if(activeBtn) {
+                if(status === 'مراد شحنها لاحقا') activeBtn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 text-white shadow-md shadow-amber-500/20 transition-all";
+                else if(status === 'مستلمة بها مشكلة') activeBtn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white shadow-md shadow-rose-600/20 transition-all";
+                else if(status === 'مستلمة') activeBtn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-md shadow-emerald-600/20 transition-all";
+                else activeBtn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-red-600 text-white shadow-md shadow-red-600/20 transition-all";
+            }
+            renderOrders();
+        }
+
+        function renderOrders() {
+            const tbody = document.getElementById('orders-table-body');
+            tbody.innerHTML = '';
+
+            let totalShipmentValue = 0;
+            let totalPaid = 0;
+
+            const filteredOrders = orders.filter(o => currentFilter === 'all' || o.status === currentFilter);
+
+            filteredOrders.forEach(order => {
+                totalShipmentValue += (parseFloat(order.price || 0) * parseFloat(order.qty || 0));
+                let factoryPrice = parseFloat(order.price || 0);
+
+                let actionHtml = '';
+                if (currentRole === 'James') {
+                    let deleteBtn = `<button onclick="deleteOrder(${order.id})" class="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-xs px-2.5 py-1 rounded-xl font-bold transition-all shadow-sm" title="Delete Item"><i class="fa-solid fa-trash"></i></button>`;
+                    actionHtml = `
+                        <div class="flex gap-1.5 items-center text-xs">
+                            <input type="number" step="0.01" id="price-${order.id}" value="${order.price || ''}" placeholder="Price" class="w-16 px-2 py-1 bg-slate-50 border border-slate-200 text-slate-800 rounded-xl focus:outline-none focus:border-red-500">
+                            <input type="number" id="ready-${order.id}" value="${order.readyQty || 0}" placeholder="Ready Qty" class="w-20 px-2 py-1 bg-slate-50 border border-slate-200 text-slate-800 rounded-xl focus:outline-none focus:border-red-500 font-bold text-emerald-600" title="Update Ready Qty">
+                            <button onclick="updateJamesData(${order.id})" class="bg-red-600 text-white px-2.5 py-1 rounded-xl shadow-sm hover:bg-red-700 font-bold">Save</button>
+                            ${deleteBtn}
+                        </div>
+                    `;
+                } else {
+                    let receiveBtn = order.status === 'في البحر' ? `<button onclick="receiveShipment(${order.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm"><i class="fa-solid fa-check-circle"></i> استلام</button>` : '';
+                    let issueBtn = order.status === 'مستلمة' || order.status === 'في البحر' ? `<button onclick="markIssue(${order.id})" class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm" title="الإبلاغ عن مشكلة"><i class="fa-solid fa-triangle-exclamation"></i> مشكلة</button>` : '';
+                    let deleteBtn = `<button onclick="deleteOrder(${order.id})" class="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-xs px-2.5 py-1.5 rounded-xl font-bold transition-all shadow-sm" title="حذف الطلبية"><i class="fa-solid fa-trash"></i></button>`;
+                    
+                    actionHtml = `
+                        <div class="flex items-center gap-1.5">
+                            <select onchange="updateOrderStatus(${order.id}, this.value)" class="bg-slate-50 border border-slate-200 text-xs text-red-600 font-semibold p-1.5 rounded-xl w-28 focus:outline-none">
+                                <option value="معلقة" ${order.status === 'معلقة' ? 'selected' : ''}>معلقة</option>
+                                <option value="قيد التصنيع" ${order.status === 'قيد التصنيع' ? 'selected' : ''}>قيد التصنيع</option>
+                                <option value="بضائع جاهزة" ${order.status === 'بضائع جاهزة' ? 'selected' : ''}>بضائع جاهزة</option>
+                                <option value="في البحر" ${order.status === 'في البحر' ? 'selected' : ''}>في البحر</option>
+                                <option value="مراد شحنها لاحقا" ${order.status === 'مراد شحنها لاحقا' ? 'selected' : ''}>Backlog</option>
+                                <option value="مستلمة بها مشكلة" ${order.status === 'مستلمة بها مشكلة' ? 'selected' : ''}>بها مشكلة</option>
+                                <option value="مستلمة" ${order.status === 'مستلمة' ? 'selected' : ''}>مستلمة</option>
+                                <option value="ملغاة" ${order.status === 'ملغاة' ? 'selected' : ''}>ملغاة</option>
+                            </select>
+                            ${receiveBtn}
+                            ${issueBtn}
+                            ${deleteBtn}
+                        </div>
+                    `;
+                }
+
+                let badgeColor = 'bg-slate-100 text-slate-600 border border-slate-200';
+                if(order.status === 'قيد التصنيع') badgeColor = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+                else if(order.status === 'بضائع جاهزة') badgeColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                else if(order.status === 'مراد شحنها لاحقا') badgeColor = 'bg-amber-50 text-amber-700 border border-amber-200';
+                else if(order.status === 'مستلمة بها مشكلة') badgeColor = 'bg-rose-50 text-rose-700 border border-rose-200';
+                else if(order.status === 'في البحر') badgeColor = 'bg-blue-50 text-blue-700 border border-blue-200';
+                else if(order.status === 'مستلمة') badgeColor = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+
+                let secondColDateOrReady = currentRole === 'James' ? 
+                    `<td class="py-3 px-4 text-emerald-600 font-bold bg-slate-50/50">Ready: ${order.readyQty || 0}</td>` : 
+                    `<td class="py-3 px-4 text-xs font-mono text-amber-600 font-semibold">${order.eta || 'لم يُحدد'}</td>`;
+
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50/80 transition-colors';
+                row.innerHTML = `
+                    <td class="py-3 px-4"><img src="${order.image || 'https://via.placeholder.com/50'}" class="w-12 h-12 object-cover rounded-xl border border-slate-200 shadow-sm"></td>
+                    <td class="py-3 px-4 font-mono text-xs text-red-600 font-bold">${order.sku}</td>
+                    <td class="py-3 px-4 font-medium text-slate-800">${order.nameAr}</td>
+                    <td class="py-3 px-4 font-medium text-slate-500 text-xs">${order.nameEn}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-800">${order.qty.toLocaleString()}</td>
+                    <td class="py-3 px-4 text-emerald-600 font-bold">${order.readyQty || 0} / ${order.qty}</td>
+                    <td class="py-3 px-4 font-bold text-red-600">$${factoryPrice.toFixed(2)}</td>
+                    ${secondColDateOrReady}
+                    <td class="py-3 px-4"><span class="${badgeColor} px-3 py-1 rounded-full text-xs font-semibold shadow-xs">${order.status || 'معلقة'}</span></td>
+                    <td class="py-3 px-4 text-left no-print">${actionHtml}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            payments.forEach(p => { totalPaid += parseFloat(p.amount || 0); });
+            let netFactoryBalance = totalShipmentValue - totalPaid;
+
+            document.getElementById('stat-shipment-val').innerText = '$' + totalShipmentValue.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('stat-total-paid').innerText = '$' + totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('stat-net-balance').innerText = '$' + netFactoryBalance.toLocaleString(undefined, {minimumFractionDigits: 2});
+        }
+
+        function receiveShipment(id) {
+            const order = orders.find(o => o.id === id);
+            if (order) {
+                order.status = 'مستلمة';
+                order.receivedDate = new Date().toISOString().split('T')[0];
+                saveCloudData();
+                renderOrders();
+                alert(currentRole === 'James' ? "Shipment received and archived successfully!" : "تم استلام الشحنة وترحيلها بنجاح إلى أرشيف (الشحنات المستلمة)!");
+            }
+        }
+
+        function markIssue(id) {
+            const order = orders.find(o => o.id === id);
+            if (order) {
+                order.status = 'مستلمة بها مشكلة';
+                saveCloudData();
+                renderOrders();
+                alert("تم تحديث الحالة إلى (مستلمة بها مشكلة) لكي يراجعها جيمس!");
+            }
+        }
+
+        function deleteOrder(id) {
+            if (confirm(currentRole === 'James' ? "Are you sure you want to delete this order item?" : "هل أنت متأكد من حذف هذه الطلبية نهائياً؟")) {
+                orders = orders.filter(o => o.id !== id);
+                saveCloudData();
+                renderOrders();
+                alert(currentRole === 'James' ? "Order item deleted successfully!" : "تم حذف الطلبية بنجاح!");
+            }
+        }
+
+        function promptExcelImportType(e) {
+            pendingImportEvent = e;
+            const choice = prompt(
+                "اختر نوع الملف المستورد:\n\n" +
+                "1 - إضافة للمواد (كتالوج فقط بدون طلبية)\n" +
+                "2 - طلبية جديدة / قيد التجهيز\n" +
+                "3 - شحنة في البحر\n\n" +
+                "اكتب الرقم (1 أو 2 أو 3):",
+                "1"
+            );
+            if (!choice) return;
+            
+            let targetStatus = 'معلقة';
+            let isCatalogOnly = false;
+
+            if (choice.trim() === '1') {
+                isCatalogOnly = true;
+            } else if (choice.trim() === '2') {
+                targetStatus = 'قيد التصنيع';
+            } else if (choice.trim() === '3') {
+                targetStatus = 'في البحر';
+            } else {
+                alert('تم إلغاء الاستيراد.');
+                return;
+            }
+
+            processExcelImport(pendingImportEvent, isCatalogOnly, targetStatus);
+        }
+
+        function processExcelImport(e, isCatalogOnly, targetStatus) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    let addedCount = 0;
+                    
+                    for (let i = 0; i < json.length; i++) {
+                        const row = json[i];
+                        if (!row || row.length === 0) continue;
+
+                        const sku = String(row[0] || '').trim();
+                        if (!sku || sku.toLowerCase() === 'item no' || sku.toLowerCase() === 'sku') continue;
+
+                        const rawDesc = String(row[1] || row[2] || sku).trim();
+                        const qty = parseInt(row[3] || row[4] || 100);
+                        const price = parseFloat(row[4] || row[5] || 0);
+
+                        const translation = autoTranslate(sku, rawDesc);
+
+                        let existingCatalog = catalog.find(c => c.sku === sku);
+                        if (!existingCatalog) {
+                            catalog.push({ id: Date.now() + Math.random(), sku, nameAr: translation.ar, nameEn: translation.en, image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=150' });
+                        }
+
+                        if (!isCatalogOnly) {
+                            orders.push({
+                                id: Date.now() + Math.random(),
+                                sku,
+                                nameAr: translation.ar,
+                                nameEn: translation.en,
+                                qty: isNaN(qty) ? 100 : qty,
+                                readyQty: 0,
+                                price: isNaN(price) ? 0 : price,
+                                eta: '',
+                                status: targetStatus,
+                                image: existingCatalog ? existingCatalog.image : 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=150'
+                            });
+                        }
+                        addedCount++;
+                    }
+
+                    saveCloudData();
+                    renderOrders();
+                    alert(isCatalogOnly ? 
+                        `تمت إضافة وتحديث ${addedCount} مادة في الكتالوج بنجاح!` : 
+                        `تم استيراد ${addedCount} صنف بنجاح كـ (${targetStatus})!`
+                    );
+                } catch (err) {
+                    alert('خطأ في قراءة ملف الإكسل.');
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function openNewOrderModal() {
+            const select = document.getElementById('select-catalog-sku');
+            select.innerHTML = '<option value="">-- اختر من الكتالوج المسجل --</option>';
+            catalog.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.sku;
+                opt.innerText = `${item.sku} - ${item.nameAr} (${item.nameEn})`;
+                select.appendChild(opt);
+            });
+            document.getElementById('new-order-modal').classList.remove('hidden');
+            document.getElementById('new-order-modal').classList.add('flex');
+        }
+
+        function closeNewOrderModal() { document.getElementById('new-order-modal').classList.add('hidden'); }
+
+        function onSelectCatalogItem(sku) {
+            const item = catalog.find(c => c.sku === sku);
+            if (item) {
+                document.getElementById('order-sku').value = item.sku;
+                document.getElementById('order-name-ar').value = item.nameAr;
+                document.getElementById('order-name-en').value = item.nameEn;
+                document.getElementById('order-image').value = item.image;
+            }
+        }
+
+        function saveNewOrder(e) {
+            e.preventDefault();
+            const sku = document.getElementById('order-sku').value.trim();
+            const nameAr = document.getElementById('order-name-ar').value;
+            const nameEn = document.getElementById('order-name-en').value;
+            const qty = parseInt(document.getElementById('order-qty').value);
+            const eta = document.getElementById('order-eta').value;
+            const status = document.getElementById('order-status').value;
+            const image = document.getElementById('order-image').value || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=150';
+
+            let existingCatalog = catalog.find(c => c.sku === sku);
+            if (!existingCatalog) {
+                catalog.push({ id: Date.now(), sku, nameAr, nameEn, image });
+            } else {
+                existingCatalog.nameAr = nameAr;
+                existingCatalog.nameEn = nameEn;
+                existingCatalog.image = image;
+            }
+
+            orders.push({ id: Date.now(), sku, nameAr, nameEn, qty, readyQty: 0, price: 0, eta, status, image });
+            saveCloudData();
+            closeNewOrderModal();
+            renderOrders();
+            alert('تمت إضافة الطلبية بنجاح وسحابياً!');
+        }
+
+        function updateOrderStatus(id, status) {
+            const order = orders.find(o => o.id === id);
+            if (order) {
+                order.status = status;
+                saveCloudData();
+                renderOrders();
+            }
+        }
+
+        function updateJamesData(id) {
+            const order = orders.find(o => o.id === id);
+            const price = parseFloat(document.getElementById(`price-${id}`).value);
+            const readyQty = parseInt(document.getElementById(`ready-${id}`).value) || 0;
+
+            if (!isNaN(price)) order.price = price;
+            order.readyQty = readyQty;
+            if (readyQty >= order.qty) order.status = 'بضائع جاهزة';
+
+            saveCloudData();
+            renderOrders();
+            alert('Updated successfully and synced with cloud!');
+        }
+
+        function openCatalogModal() {
+            const grid = document.getElementById('catalog-grid');
+            grid.innerHTML = '';
+            
+            catalog.forEach((item, index) => {
+                let itemOrders = orders.filter(o => o.sku === item.sku);
+                let qtyPending = 0, qtyProd = 0, qtyReady = 0, qtySea = 0, qtyLater = 0, qtyIssue = 0, qtyReceived = 0;
+
+                itemOrders.forEach(o => {
+                    if (o.status === 'معلقة') qtyPending += o.qty;
+                    else if (o.status === 'قيد التصنيع') qtyProd += o.qty;
+                    else if (o.status === 'بضائع جاهزة') qtyReady += o.qty;
+                    else if (o.status === 'في البحر') qtySea += o.qty;
+                    else if (o.status === 'مراد شحنها لاحقا') qtyLater += o.qty;
+                    else if (o.status === 'مستلمة بها مشكلة') qtyIssue += o.qty;
+                    else if (o.status === 'مستلمة') qtyReceived += o.qty;
+                });
+
+                const card = document.createElement('div');
+                card.className = 'bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4 shadow-xs';
+                card.innerHTML = `
+                    <div class="flex flex-col items-center gap-2">
+                        <img src="${item.image}" class="w-20 h-20 object-cover rounded-xl border border-slate-200 shadow-sm">
+                        <input type="text" id="cat-img-${index}" value="${item.image}" class="w-28 bg-white border border-slate-200 text-slate-500 text-[10px] px-2 py-1 rounded-lg focus:outline-none" placeholder="Image URL...">
+                    </div>
+                    <div class="flex-1 space-y-2 text-xs w-full">
+                        <div class="flex justify-between items-center">
+                            <span class="font-mono text-red-600 font-bold text-sm">Item No: ${item.sku}</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input type="text" id="cat-ar-${index}" value="${item.nameAr}" class="w-full bg-white border border-slate-200 text-slate-800 px-3 py-2 rounded-xl focus:outline-none focus:border-red-500 font-medium" placeholder="Arabic Name">
+                            <input type="text" id="cat-en-${index}" value="${item.nameEn}" class="w-full bg-white border border-slate-200 text-slate-600 px-3 py-2 rounded-xl focus:outline-none focus:border-red-500 font-medium" placeholder="English Name">
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-7 gap-2 pt-2 text-center">
+                            <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-xs">
+                                <span class="block text-[10px] text-slate-400">Pending</span>
+                                <span class="font-bold text-slate-700">${qtyPending}</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-xs">
+                                <span class="block text-[10px] text-indigo-600">Production</span>
+                                <span class="font-bold text-indigo-700">${qtyProd}</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-xs">
+                                <span class="block text-[10px] text-emerald-600">Ready</span>
+                                <span class="font-bold text-emerald-700">${qtyReady}</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-xs">
+                                <span class="block text-[10px] text-blue-600">Transit</span>
+                                <span class="font-bold text-blue-700">${qtySea}</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-xs">
+                                <span class="block text-[10px] text-amber-600">Backlog</span>
+                                <span class="font-bold text-amber-700">${qtyLater}</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-xs">
+                                <span class="block text-[10px] text-rose-600">Issue</span>
+                                <span class="font-bold text-rose-700">${qtyIssue}</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-xs">
+                                <span class="block text-[10px] text-emerald-600">Received</span>
+                                <span class="font-bold text-emerald-700">${qtyReceived}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <button onclick="saveCatalogEdit(${index}, '${item.sku}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-xl font-medium shadow-sm">Save</button>
+                        <button onclick="deleteCatalogItem('${item.sku}')" class="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-xs px-4 py-2 rounded-xl font-medium transition-all shadow-xs"><i class="fa-solid fa-trash"></i> Delete</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            document.getElementById('catalog-modal').classList.remove('hidden');
+            document.getElementById('catalog-modal').classList.add('flex');
+        }
+
+        function closeCatalogModal() { document.getElementById('catalog-modal').classList.add('hidden'); }
+
+        function saveCatalogEdit(index, sku) {
+            const nameAr = document.getElementById(`cat-ar-${index}`).value;
+            const nameEn = document.getElementById(`cat-en-${index}`).value;
+            const newImage = document.getElementById(`cat-img-${index}`).value;
+
+            const item = catalog.find(c => c.sku === sku);
+            if (item) {
+                item.nameAr = nameAr;
+                item.nameEn = nameEn;
+                item.image = newImage;
+            }
+            orders.forEach(o => {
+                if (o.sku === sku) {
+                    o.nameAr = nameAr;
+                    o.nameEn = nameEn;
+                    o.image = newImage;
+                }
+            });
+
+            saveCloudData();
+            renderOrders();
+            alert('Saved successfully!');
+            openCatalogModal();
+        }
+
+        function deleteCatalogItem(sku) {
+            if (confirm(`Are you sure you want to delete item (${sku}) from catalog and all its orders?`)) {
+                catalog = catalog.filter(c => c.sku !== sku);
+                orders = orders.filter(o => o.sku !== sku);
+                saveCloudData();
+                renderOrders();
+                alert('Deleted successfully!');
+                openCatalogModal();
+            }
+        }
+
+        function openPaymentModal() {
+            document.getElementById('pay-date').valueAsDate = new Date();
+            document.getElementById('payment-modal').classList.remove('hidden');
+            document.getElementById('payment-modal').classList.add('flex');
+        }
+
+        function closePaymentModal() { document.getElementById('payment-modal').classList.add('hidden'); }
+
+        function savePayment(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('pay-amount').value);
+            const date = document.getElementById('pay-date').value;
+            const receipt = document.getElementById('pay-receipt').value;
+
+            payments.push({ id: Date.now(), amount, date, receipt });
+            saveCloudData();
+            closePaymentModal();
+            renderOrders();
+            alert('تم حفظ الدفعة بنجاح!');
+        }
+
+        function exportPDFReport() {
+            const element = document.getElementById('pdf-report-content');
+            const opt = {
+                margin: 0.5,
+                filename: 'BF_Tools_Orders_Report.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().from(element).set(opt).save();
+        }
+
+        fetchCloudData();
+
+        supabaseClient
+            .channel('public:app_data')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'app_data' }, payload => {
+                fetchCloudData();
+            })
+            .subscribe();
+    </script>
+</body>
+</html>
