@@ -131,10 +131,7 @@
                 <table class="w-full text-right border-collapse" id="main-table">
                     <thead>
                         <tr class="bg-slate-100/70 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                            <div>
-    <label class="block font-semibold text-slate-600 uppercase mb-1">صورة الصنف (رفع من الجهاز)</label>
-    <input type="file" id="order-image-file" accept="image/*" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500">
-</div>
+                            <th class="py-3.5 px-4" id="th-img">الصورة</th>
                             <th class="py-3.5 px-4" id="th-sku">رقم القطعة (Item No)</th>
                             <th class="py-3.5 px-4" id="th-name-ar">اسم المادة (عربي)</th>
                             <th class="py-3.5 px-4" id="th-name-en">Item Name (English)</th>
@@ -203,8 +200,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block font-semibold text-slate-600 uppercase mb-1">رابط صورة الصنف (Image URL)</label>
-                    <input type="text" id="order-image" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500" placeholder="https://...">
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">صورة الصنف (رفع من الجهاز)</label>
+                    <input type="file" id="order-image-file" accept="image/*" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500">
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="closeNewOrderModal()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl font-medium hover:bg-slate-50">إلغاء</button>
@@ -337,7 +334,7 @@
                 document.getElementById('brand-title').innerText = "BF TOOLS & GARAGE EQUIPMENT (SUPPLIER)";
                 document.getElementById('brand-subtitle').innerText = "Factory Portal - China";
                 document.getElementById('view-title').innerText = "Factory Production & Pricing Portal";
-                document.getElementById('view-desc').innerText = "Input factory prices, manage ready quantities, update status, and manage production items.";
+                document.getElementById('view-desc').innerText = "Input factory prices, manage ready quantities, update status, and review reported issues.";
                 document.getElementById('btn-add-order').style.display = 'none';
                 document.getElementById('btn-import-excel').style.display = 'none';
                 document.getElementById('btn-payment').style.display = 'none';
@@ -392,7 +389,7 @@
                 document.getElementById('th-status').innerText = "الحالة";
                 document.getElementById('th-act').innerText = "الإجراءات والترحيل";
 
-                document.getElementById('tbl-title').innerText = "جدول الطلبيات النشطة وإدارة استلاستلام الشحنات";
+                document.getElementById('tbl-title').innerText = "جدول الطلبيات النشطة وإدارة استلام الشحنات";
                 document.getElementById('tbl-sub').innerText = "يمكنك تحديد الشحنات المستلمة التي بها مشاكل ليراجعها جيمس";
             }
         }
@@ -641,7 +638,6 @@
                 document.getElementById('order-sku').value = item.sku;
                 document.getElementById('order-name-ar').value = item.nameAr;
                 document.getElementById('order-name-en').value = item.nameEn;
-                document.getElementById('order-image').value = item.image;
             }
         }
 
@@ -653,22 +649,37 @@
             const qty = parseInt(document.getElementById('order-qty').value);
             const eta = document.getElementById('order-eta').value;
             const status = document.getElementById('order-status').value;
-            const image = document.getElementById('order-image').value || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=150';
 
-            let existingCatalog = catalog.find(c => c.sku === sku);
-            if (!existingCatalog) {
-                catalog.push({ id: Date.now(), sku, nameAr, nameEn, image });
+            const fileInput = document.getElementById('order-image-file');
+
+            const proceedSave = (imageUrl) => {
+                let finalImage = imageUrl || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=150';
+
+                let existingCatalog = catalog.find(c => c.sku === sku);
+                if (!existingCatalog) {
+                    catalog.push({ id: Date.now(), sku, nameAr, nameEn, image: finalImage });
+                } else {
+                    existingCatalog.nameAr = nameAr;
+                    existingCatalog.nameEn = nameEn;
+                    if (imageUrl) existingCatalog.image = finalImage;
+                }
+
+                orders.push({ id: Date.now(), sku, nameAr, nameEn, qty, readyQty: 0, price: 0, eta, status, image: finalImage });
+                saveCloudData();
+                closeNewOrderModal();
+                renderOrders();
+                alert('تمت إضافة الطلبية وحفظ الصورة محلياً بنجاح!');
+            };
+
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    proceedSave(event.target.result);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
             } else {
-                existingCatalog.nameAr = nameAr;
-                existingCatalog.nameEn = nameEn;
-                existingCatalog.image = image;
+                proceedSave(null);
             }
-
-            orders.push({ id: Date.now(), sku, nameAr, nameEn, qty, readyQty: 0, price: 0, eta, status, image });
-            saveCloudData();
-            closeNewOrderModal();
-            renderOrders();
-            alert('تمت إضافة الطلبية بنجاح وسحابياً!');
         }
 
         function updateOrderStatus(id, status) {
@@ -717,7 +728,7 @@
                 card.innerHTML = `
                     <div class="flex flex-col items-center gap-2">
                         <img src="${item.image}" class="w-20 h-20 object-cover rounded-xl border border-slate-200 shadow-sm">
-                        <input type="text" id="cat-img-${index}" value="${item.image}" class="w-28 bg-white border border-slate-200 text-slate-500 text-[10px] px-2 py-1 rounded-lg focus:outline-none" placeholder="Image URL...">
+                        <input type="file" id="cat-img-file-${index}" accept="image/*" class="w-32 bg-white border border-slate-200 text-slate-500 text-[10px] px-2 py-1 rounded-lg focus:outline-none">
                     </div>
                     <div class="flex-1 space-y-2 text-xs w-full">
                         <div class="flex justify-between items-center">
@@ -774,26 +785,39 @@
         function saveCatalogEdit(index, sku) {
             const nameAr = document.getElementById(`cat-ar-${index}`).value;
             const nameEn = document.getElementById(`cat-en-${index}`).value;
-            const newImage = document.getElementById(`cat-img-${index}`).value;
+            const fileInput = document.getElementById(`cat-img-file-${index}`);
 
             const item = catalog.find(c => c.sku === sku);
-            if (item) {
-                item.nameAr = nameAr;
-                item.nameEn = nameEn;
-                item.image = newImage;
-            }
-            orders.forEach(o => {
-                if (o.sku === sku) {
-                    o.nameAr = nameAr;
-                    o.nameEn = nameEn;
-                    o.image = newImage;
+            
+            const executeSave = (newImage) => {
+                if (item) {
+                    item.nameAr = nameAr;
+                    item.nameEn = nameEn;
+                    if (newImage) item.image = newImage;
                 }
-            });
+                orders.forEach(o => {
+                    if (o.sku === sku) {
+                        o.nameAr = nameAr;
+                        o.nameEn = nameEn;
+                        if (newImage) o.image = newImage;
+                    }
+                });
 
-            saveCloudData();
-            renderOrders();
-            alert('Saved successfully!');
-            openCatalogModal();
+                saveCloudData();
+                renderOrders();
+                alert('Saved successfully!');
+                openCatalogModal();
+            };
+
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    executeSave(event.target.result);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                executeSave(null);
+            }
         }
 
         function deleteCatalogItem(sku) {
