@@ -649,12 +649,13 @@
         // =====================================================================
         function promptExcelImportType(e) {
             pendingImportEvent = e;
-            const choice = prompt("اختر نوع الاستيراد:\n1 - كتالوج فقط\n2 - طلبية جديدة\nاكتب 1 أو 2:", "1");
-            if (!choice || !['1', '2'].includes(choice.trim())) {
+            const choice = prompt("اختر نوع الاستيراد:\n1 - كتالوج فقط\n2 - طلبية جديدة (معلقة)\n3 - شحنة في البحر\nاكتب 1 أو 2 أو 3:", "1");
+            if (!choice || !['1', '2', '3'].includes(choice.trim())) {
                 e.target.value = '';
                 return;
             }
-            processExcelImport(pendingImportEvent, choice.trim() === '1', 'معلقة');
+            const c = choice.trim();
+            processExcelImport(pendingImportEvent, c === '1', c === '3' ? 'في البحر' : 'معلقة');
         }
 
         function detectColumns(headerRow) {
