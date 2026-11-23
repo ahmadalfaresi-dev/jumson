@@ -6,20 +6,37 @@
     <title>BF Tools - China & Syria B2B Cloud Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- SheetJS for Excel Import -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- html2pdf for PDF Exports -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Supabase JS Client SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         .brand-gradient { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
         .card-bright { background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05); }
+        #toast-box { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+        .toast { padding: 10px 18px; border-radius: 14px; font-size: 13px; font-weight: 600; color: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.2); }
     </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800">
 
-    <!-- Header / Brand Bar -->
+    <div id="toast-box"></div>
+
+    <!-- ===== SECTION: LOGIN ===== -->
+    <div id="login-overlay" class="fixed inset-0 bg-slate-900 flex items-center justify-center p-4 z-[200]">
+        <form onsubmit="doLogin(event)" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-sm" dir="ltr">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-red-600 to-rose-500 flex items-center justify-center text-white font-black text-xl italic">BF</div>
+                <div>
+                    <div class="font-black text-slate-900">BF TOOLS</div>
+                    <div class="text-xs text-slate-500">Sign in / تسجيل الدخول</div>
+                </div>
+            </div>
+            <input type="email" id="login-email" required autocomplete="username" placeholder="Email" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-red-500">
+            <input type="password" id="login-password" required autocomplete="current-password" placeholder="Password" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-red-500">
+            <div id="login-error" class="text-xs text-rose-600 hidden"></div>
+            <button type="submit" id="login-btn" class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-2xl font-bold shadow-md shadow-red-600/20">Sign in / دخول</button>
+        </form>
+    </div>
+
     <header class="brand-gradient border-b border-slate-700 shadow-lg sticky top-0 z-40 text-white">
         <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
@@ -33,25 +50,19 @@
                     <p class="text-xs text-red-300 font-semibold" id="brand-subtitle">نظام إدارة الطلبيات الذكية السحابي</p>
                 </div>
             </div>
-            
+
             <div class="flex items-center gap-3">
-                <!-- User Role Switcher -->
                 <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 shadow-inner">
                     <span class="text-xs text-slate-300" id="label-user">المستخدم:</span>
-                    <select id="role-selector" onchange="switchRole(this.value)" class="bg-transparent text-red-400 text-xs font-bold focus:outline-none cursor-pointer">
-                        <option value="Ahmad" class="bg-slate-900 text-white">أحمد (مستورد - مدير)</option>
-                        <option value="Bakri" class="bg-slate-900 text-white">بكري (مستورد - إدخال)</option>
-                        <option value="James" class="bg-slate-900 text-white">James (Supplier - China)</option>
-                    </select>
+                    <span id="role-name" class="text-red-400 text-xs font-bold">—</span>
+                    <button onclick="logout()" class="text-slate-300 hover:text-white text-xs border border-slate-600 rounded-lg px-2 py-0.5" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Main Container -->
     <div id="pdf-report-content" class="max-w-7xl mx-auto px-4 py-8">
-
-        <!-- Status Filter Tabs & Financial Summary -->
+        <!-- ===== SECTION: FILTERS + STATS ===== -->
         <div class="card-bright p-6 rounded-3xl mb-8">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-100 pb-4">
                 <div>
@@ -60,7 +71,6 @@
                     </h3>
                     <p class="text-xs text-slate-500 mt-1" id="sec-filter-desc">متابعة دقيقة للطلبيات، قيد التصنيع، جاهزة، في البحر، والمشاكل</p>
                 </div>
-                <!-- Status Filter Buttons -->
                 <div class="flex flex-wrap gap-1.5" id="status-filters">
                     <button onclick="filterStatus('all')" id="filter-all" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-600 text-white shadow-md shadow-red-600/20 transition-all">الكل / All</button>
                     <button onclick="filterStatus('معلقة')" id="filter-pend" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">معلقة / Pending</button>
@@ -73,11 +83,11 @@
                 </div>
             </div>
 
-            <!-- Financial Summary Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 text-center">
                 <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-sm">
                     <p class="text-xs text-slate-500 uppercase font-semibold" id="lbl-c1">سقف التسهيلات الائتمانية</p>
-                    <h4 class="text-xl font-bold text-slate-800 mt-1">$125,000.00</h4>
+                    <h4 class="text-xl font-bold text-slate-800 mt-1" id="stat-credit-limit">$125,000.00</h4>
+                    <p class="text-[11px] text-slate-500 mt-1"><span id="lbl-avail">المتاح</span>: <span id="stat-credit-avail" class="font-bold">$0.00</span></p>
                 </div>
                 <div class="bg-red-50/50 p-4 rounded-2xl border border-red-100 shadow-sm">
                     <p class="text-xs text-red-600 uppercase font-semibold" id="lbl-c2">إجمالي قيمة الطلبيات</p>
@@ -94,7 +104,7 @@
             </div>
         </div>
 
-        <!-- Action Bar -->
+        <!-- ===== SECTION: ACTION BUTTONS ===== -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 no-print">
             <div>
                 <h2 id="view-title" class="text-2xl font-black text-slate-900 tracking-tight">إدارة المواد والطلبيات المباشرة</h2>
@@ -114,13 +124,16 @@
                 <button onclick="exportPDFReport()" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-2xl shadow-sm font-medium flex items-center gap-2 transition-all text-sm">
                     <i class="fa-solid fa-file-pdf text-rose-600"></i> <span id="txt-pdf">تصدير تقرير PDF</span>
                 </button>
+                <button onclick="exportBackup()" id="btn-backup" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-2xl shadow-sm font-medium flex items-center gap-2 transition-all text-sm">
+                    <i class="fa-solid fa-download text-slate-600"></i> <span id="txt-backup">نسخة احتياطية</span>
+                </button>
                 <button onclick="openPaymentModal()" id="btn-payment" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-2xl shadow-sm font-medium flex items-center gap-2 transition-all text-sm">
                     <i class="fa-solid fa-receipt text-blue-600"></i> <span id="txt-pay">+ إضافة دفعة مالية</span>
                 </button>
             </div>
         </div>
 
-        <!-- Orders Table -->
+        <!-- ===== SECTION: ORDERS TABLE ===== -->
         <div class="card-bright rounded-3xl overflow-hidden mb-8">
             <div class="p-4 bg-slate-50/80 border-b border-slate-200 font-bold text-slate-700 text-sm flex justify-between items-center">
                 <span id="tbl-title">جدول الطلبيات النشطة وإدارة شحن الكميات الجاهزة</span>
@@ -141,15 +154,13 @@
                             <th class="py-3.5 px-4 text-left no-print" id="th-act">الإجراءات والترحيل للشحن</th>
                         </tr>
                     </thead>
-                    <tbody id="orders-table-body" class="divide-y divide-slate-100 text-sm">
-                        <!-- Dynamic rows -->
-                    </tbody>
+                    <tbody id="orders-table-body" class="divide-y divide-slate-100 text-sm"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- Modal: Add Order -->
+    <!-- ===== SECTION: MODALS ===== -->
     <div id="new-order-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
         <div class="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-lg w-full p-6 relative">
             <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
@@ -177,7 +188,7 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-semibold text-slate-600 uppercase mb-1">الكمية المطلوبة</label>
-                        <input type="number" id="order-qty" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500" placeholder="500">
+                        <input type="number" id="order-qty" required min="1" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl text-sm focus:outline-none focus:border-red-500" placeholder="500">
                     </div>
                     <div>
                         <label class="block font-semibold text-slate-600 uppercase mb-1">حالة الطلبية</label>
@@ -200,7 +211,6 @@
         </div>
     </div>
 
-    <!-- Catalog Modal with CBM, Weight, & Quantities Breakdown -->
     <div id="catalog-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
         <div class="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-5xl w-full p-6 relative max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
@@ -211,7 +221,6 @@
         </div>
     </div>
 
-    <!-- Payment Modal -->
     <div id="payment-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
         <div class="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-md w-full p-6 relative">
             <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
@@ -239,21 +248,27 @@
         </div>
     </div>
 
-    <!-- JavaScript Core & Supabase Sync -->
     <script>
+        // =====================================================================
+        // SECTION: CONFIG & STATE
+        // صيغة البيانات في Supabase (جدول app_data: id = orders | payments | catalog)
+        // لم تتغير إطلاقا، لذلك كل البيانات الموجودة تبقى كما هي.
+        // =====================================================================
+        const CREDIT_LIMIT = 125000;
         const supabaseUrl = 'https://nyvufmokgdzbecqurgpz.supabase.co';
         const supabaseKey = localStorage.getItem('supabase_anon_key') || prompt("Please enter your Supabase Anon Public Key:") || 'YOUR_SUPABASE_ANON_KEY';
         localStorage.setItem('supabase_anon_key', supabaseKey);
-        
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+        const DEFAULT_IMG = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=150';
 
         let currentRole = 'Ahmad';
         let currentFilter = 'all';
-
         let catalog = [];
         let orders = [];
         let payments = [];
         let pendingImportEvent = null;
+        let idCounter = 0;
 
         const dictionary = {
             "tr414": { ar: "ولف اسود TR414", en: "Tubeless Snap-In Tire Valve TR414" },
@@ -264,51 +279,71 @@
             "j21153": { ar: "ستاند رفع 3 طن", en: "Jack Stand 3 Ton" }
         };
 
+        // =====================================================================
+        // SECTION: HELPERS (toast, escape, ids)
+        // =====================================================================
+        function toast(msg, type) {
+            const box = document.getElementById('toast-box');
+            const el = document.createElement('div');
+            el.className = 'toast ' + (type === 'error' ? 'bg-rose-600' : type === 'warn' ? 'bg-amber-600' : 'bg-emerald-600');
+            el.textContent = msg;
+            box.appendChild(el);
+            setTimeout(() => el.remove(), 3200);
+        }
+
+        function esc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function newId() { return Date.now() * 1000 + (idCounter++ % 1000); }
+
         function autoTranslate(sku, desc) {
             const cleanSku = (sku || "").toLowerCase().trim();
-            if (dictionary[cleanSku]) {
-                return dictionary[cleanSku];
-            }
-            return {
-                ar: desc || sku || "مادة جديدة",
-                en: desc || sku || "New Item"
-            };
+            if (dictionary[cleanSku]) return dictionary[cleanSku];
+            return { ar: desc || sku || "مادة جديدة", en: desc || sku || "New Item" };
+        }
+
+        // =====================================================================
+        // SECTION: CLOUD DATA (آمن ضد المسح والتعارض)
+        // - لا يكتب شيئا في الجدول إذا فشلت القراءة (حتى لا تُمسح البيانات)
+        // - كل تعديل: يقرأ آخر نسخة من السحابة ثم يطبق التعديل ثم يحفظ فقط ما تغير
+        // =====================================================================
+        async function loadAll() {
+            const { data, error } = await supabaseClient.from('app_data').select('*');
+            if (error) { console.error(error); toast('تعذر الاتصال بقاعدة البيانات', 'error'); return false; }
+            (data || []).forEach(row => {
+                if (row.id === 'orders') orders = row.data || [];
+                if (row.id === 'payments') payments = row.data || [];
+                if (row.id === 'catalog') catalog = row.data || [];
+            });
+            return true;
         }
 
         async function fetchCloudData() {
-            try {
-                const { data, error } = await supabaseClient.from('app_data').select('*');
-                if (data && data.length > 0) {
-                    data.forEach(row => {
-                        if (row.id === 'orders') orders = row.data;
-                        if (row.id === 'payments') payments = row.data;
-                        if (row.id === 'catalog') catalog = row.data;
-                    });
-                } else {
-                    orders = [];
-                    catalog = [];
-                    payments = [];
-                    await saveCloudData();
-                }
-                renderOrders();
-                updateRoleUI();
-            } catch (err) {
-                console.error("Cloud fetch error:", err);
-            }
+            if (await loadAll()) { renderOrders(); updateRoleUI(); }
         }
 
-        async function saveCloudData() {
-            try {
-                await supabaseClient.from('app_data').upsert([
-                    { id: 'orders', data: orders },
-                    { id: 'payments', data: payments },
-                    { id: 'catalog', data: catalog }
-                ]);
-            } catch (err) {
-                console.error("Cloud save error:", err);
-            }
+        async function saveKeys(keys) {
+            const all = { orders, payments, catalog };
+            const rows = keys.map(k => ({ id: k, data: all[k] }));
+            const { error } = await supabaseClient.from('app_data').upsert(rows);
+            if (error) { console.error(error); toast('فشل الحفظ في السحابة', 'error'); return false; }
+            return true;
         }
 
+        // mutate(['orders'], () => { ...تعديل... })
+        async function mutate(keys, fn) {
+            if (!(await loadAll())) return false;
+            const result = fn();
+            if (result === false) { renderOrders(); return false; }
+            const ok = await saveKeys(keys);
+            renderOrders();
+            return ok;
+        }
+
+        // =====================================================================
+        // SECTION: ROLES & LANGUAGE
+        // =====================================================================
         function switchRole(role) {
             currentRole = role;
             updateRoleUI();
@@ -326,11 +361,13 @@
                 document.getElementById('btn-add-order').style.display = 'none';
                 document.getElementById('btn-import-excel').style.display = 'none';
                 document.getElementById('btn-payment').style.display = 'none';
+                document.getElementById('btn-backup').style.display = 'none';
 
                 document.getElementById('label-user').innerText = "User:";
                 document.getElementById('sec-filter-title').innerText = "Filter Orders (Tracking & Issues)";
                 document.getElementById('sec-filter-desc').innerText = "Track pending, production, ready, transit, backlog, and received items with issues reported.";
                 document.getElementById('lbl-c1').innerText = "Credit Facility Limit";
+                document.getElementById('lbl-avail').innerText = "Available";
                 document.getElementById('lbl-c2').innerText = "Total Orders Value";
                 document.getElementById('lbl-c3').innerText = "Total Paid Amount";
                 document.getElementById('lbl-c4').innerText = "Net Factory Balance";
@@ -353,11 +390,13 @@
                 document.getElementById('btn-add-order').style.display = 'flex';
                 document.getElementById('btn-import-excel').style.display = 'flex';
                 document.getElementById('btn-payment').style.display = currentRole === 'Ahmad' ? 'flex' : 'none';
+                document.getElementById('btn-backup').style.display = currentRole === 'Ahmad' ? 'flex' : 'none';
 
                 document.getElementById('label-user').innerText = "المستخدم:";
                 document.getElementById('sec-filter-title').innerText = "تصفية الطلبيات (قوائم المتابعة)";
                 document.getElementById('sec-filter-desc').innerText = "متابعة دقيقة للطلبيات، قيد التصنيع، جاهزة، في البحر، ومشاكل الاستلام.";
                 document.getElementById('lbl-c1').innerText = "سقف التسهيلات الائتمانية";
+                document.getElementById('lbl-avail').innerText = "المتاح";
                 document.getElementById('lbl-c2').innerText = "إجمالي قيمة الطلبيات";
                 document.getElementById('lbl-c3').innerText = "إجمالي المدفوعات المحولة";
                 document.getElementById('lbl-c4').innerText = "صافي رصيد المعمل المتبقي";
@@ -374,35 +413,37 @@
             }
         }
 
+        // =====================================================================
+        // SECTION: FILTERS
+        // =====================================================================
         function filterStatus(status) {
             currentFilter = status;
             document.querySelectorAll('#status-filters button').forEach(btn => {
                 btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all";
             });
             const activeBtn = document.getElementById('filter-' + (status === 'all' ? 'all' : status === 'معلقة' ? 'pend' : status === 'قيد التصنيع' ? 'prod' : status === 'بضائع جاهزة' ? 'ready' : status === 'في البحر' ? 'sea' : status === 'مراد شحنها لاحقا' ? 'later' : status === 'مستلمة بها مشكلة' ? 'issue' : 'recv'));
-            if(activeBtn) {
-                if(status === 'مستلمة بها مشكلة') activeBtn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white shadow-md shadow-rose-600/20 transition-all";
-                else if(status === 'مستلمة') activeBtn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-md shadow-emerald-600/20 transition-all";
+            if (activeBtn) {
+                if (status === 'مستلمة بها مشكلة') activeBtn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white shadow-md shadow-rose-600/20 transition-all";
+                else if (status === 'مستلمة') activeBtn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-md shadow-emerald-600/20 transition-all";
                 else activeBtn.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-red-600 text-white shadow-md shadow-red-600/20 transition-all";
             }
             renderOrders();
         }
 
+        // =====================================================================
+        // SECTION: RENDER (الجدول + الإحصائيات)
+        // الإحصائيات تُحسب من كل الطلبيات، ولا تتأثر بالفلتر
+        // =====================================================================
         function renderOrders() {
             const tbody = document.getElementById('orders-table-body');
             tbody.innerHTML = '';
 
-            let totalShipmentValue = 0;
-            let totalPaid = 0;
-
             const filteredOrders = orders.filter(o => currentFilter === 'all' || o.status === currentFilter);
 
             filteredOrders.forEach(order => {
-                totalShipmentValue += (parseFloat(order.price || 0) * parseFloat(order.qty || 0));
                 let factoryPrice = parseFloat(order.price || 0);
 
-                // البحث عن أبعاد المادة من الكتالوج لحساب CBM والوزن
-                let catItem = catalog.find(c => c.sku === order.sku) || { cbm: 0, weight: 0 };
+                let catItem = catalog.find(c => c.sku === order.sku) || { cbm: 0.01, weight: 0.5 };
                 let itemCbm = parseFloat(catItem.cbm || 0);
                 let itemWeight = parseFloat(catItem.weight || 0);
 
@@ -424,9 +465,9 @@
                 } else {
                     let shipBtn = order.readyQty > 0 ? `<button onclick="shipSelected(${order.id})" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm" title="شحن الكمية المحددة وخصمها"><i class="fa-solid fa-ship"></i> شحن</button>` : '';
                     let receiveBtn = order.status === 'في البحر' ? `<button onclick="receiveShipment(${order.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm"><i class="fa-solid fa-check-circle"></i> استلام</button>` : '';
-                    let issueBtn = order.status === 'مستلمة' || order.status === 'في البحر' ? `<button onclick="markIssue(${order.id})" class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-2 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm"><i class="fa-solid fa-triangle-exclamation"></i> مشكلة</button>` : '';
+                    let issueBtn = order.status === 'مستلمة' || order.status === 'في البحر' ? `<button onclick="markIssue(${order.id})" class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm"><i class="fa-solid fa-triangle-exclamation"></i> مشكلة</button>` : '';
                     let deleteBtn = `<button onclick="deleteOrder(${order.id})" class="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-xs px-2.5 py-1.5 rounded-xl font-bold transition-all shadow-sm"><i class="fa-solid fa-trash"></i></button>`;
-                    
+
                     actionHtml = `
                         <div class="flex items-center gap-1.5 flex-wrap">
                             <select onchange="updateOrderStatus(${order.id}, this.value)" class="bg-slate-50 border border-slate-200 text-xs text-red-600 font-semibold p-1.5 rounded-xl w-28 focus:outline-none">
@@ -434,6 +475,7 @@
                                 <option value="قيد التصنيع" ${order.status === 'قيد التصنيع' ? 'selected' : ''}>قيد التصنيع</option>
                                 <option value="بضائع جاهزة" ${order.status === 'بضائع جاهزة' ? 'selected' : ''}>بضائع جاهزة</option>
                                 <option value="في البحر" ${order.status === 'في البحر' ? 'selected' : ''}>في البحر</option>
+                                <option value="مراد شحنها لاحقا" ${order.status === 'مراد شحنها لاحقا' ? 'selected' : ''}>Backlog</option>
                                 <option value="مستلمة بها مشكلة" ${order.status === 'مستلمة بها مشكلة' ? 'selected' : ''}>بها مشكلة</option>
                                 <option value="مستلمة" ${order.status === 'مستلمة' ? 'selected' : ''}>مستلمة</option>
                             </select>
@@ -446,22 +488,23 @@
                 }
 
                 let badgeColor = 'bg-slate-100 text-slate-600 border border-slate-200';
-                if(order.status === 'قيد التصنيع') badgeColor = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
-                else if(order.status === 'بضائع جاهزة') badgeColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-                else if(order.status === 'في البحر') badgeColor = 'bg-blue-50 text-blue-700 border border-blue-200';
-                else if(order.status === 'مستلمة بها مشكلة') badgeColor = 'bg-rose-50 text-rose-700 border border-rose-200';
-                else if(order.status === 'مستلمة') badgeColor = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+                if (order.status === 'قيد التصنيع') badgeColor = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+                else if (order.status === 'بضائع جاهزة') badgeColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                else if (order.status === 'في البحر') badgeColor = 'bg-blue-50 text-blue-700 border border-blue-200';
+                else if (order.status === 'مراد شحنها لاحقا') badgeColor = 'bg-amber-50 text-amber-700 border border-amber-200';
+                else if (order.status === 'مستلمة بها مشكلة') badgeColor = 'bg-rose-50 text-rose-700 border border-rose-200';
+                else if (order.status === 'مستلمة') badgeColor = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
 
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-slate-50/80 transition-colors';
                 row.innerHTML = `
-                    <td class="py-3 px-4"><img src="${order.image || 'https://via.placeholder.com/50'}" class="w-12 h-12 object-cover rounded-xl border border-slate-200 shadow-sm"></td>
-                    <td class="py-3 px-4 font-mono text-xs text-red-600 font-bold">${order.sku}</td>
+                    <td class="py-3 px-4"><img src="${esc(order.image || 'https://via.placeholder.com/50')}" class="w-12 h-12 object-cover rounded-xl border border-slate-200 shadow-sm"></td>
+                    <td class="py-3 px-4 font-mono text-xs text-red-600 font-bold">${esc(order.sku)}</td>
                     <td class="py-3 px-4 font-medium text-slate-800">
-                        <div>${order.nameAr}</div>
-                        <div class="text-[11px] text-slate-400">${order.nameEn || ''}</div>
+                        <div>${esc(order.nameAr)}</div>
+                        <div class="text-[11px] text-slate-400">${esc(order.nameEn || '')}</div>
                     </td>
-                    <td class="py-3 px-4 font-semibold text-slate-800">${order.qty.toLocaleString()}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-800">${Number(order.qty || 0).toLocaleString()}</td>
                     <td class="py-3 px-4 text-emerald-600 font-bold">${order.readyQty || 0}</td>
                     <td class="py-3 px-4 bg-amber-50/30">
                         <div class="flex items-center gap-1">
@@ -470,166 +513,220 @@
                         <div class="text-[10px] text-slate-500 mt-1">📦 CBM: <span class="font-bold text-slate-700">${totalCbm}</span> | ⚖️ Wt: <span class="font-bold text-slate-700">${totalWeight} kg</span></div>
                     </td>
                     <td class="py-3 px-4 font-bold text-red-600">$${factoryPrice.toFixed(2)}</td>
-                    <td class="py-3 px-4"><span class="${badgeColor} px-2.5 py-1 rounded-full text-xs font-semibold">${order.status || 'معلقة'}</span></td>
+                    <td class="py-3 px-4"><span class="${badgeColor} px-2.5 py-1 rounded-full text-xs font-semibold">${esc(order.status || 'معلقة')}</span></td>
                     <td class="py-3 px-4 text-left no-print">${actionHtml}</td>
                 `;
                 tbody.appendChild(row);
             });
 
+            // الإحصائيات من كل الطلبيات (بدون فلتر)
+            let totalShipmentValue = 0;
+            orders.forEach(o => { totalShipmentValue += (parseFloat(o.price || 0) * parseFloat(o.qty || 0)); });
+            let totalPaid = 0;
             payments.forEach(p => { totalPaid += parseFloat(p.amount || 0); });
-            let netFactoryBalance = totalShipmentValue - totalPaid;
+            const netFactoryBalance = totalShipmentValue - totalPaid;
+            const fmt = n => '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-            document.getElementById('stat-shipment-val').innerText = '$' + totalShipmentValue.toLocaleString(undefined, {minimumFractionDigits: 2});
-            document.getElementById('stat-total-paid').innerText = '$' + totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2});
-            document.getElementById('stat-net-balance').innerText = '$' + netFactoryBalance.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('stat-credit-limit').innerText = fmt(CREDIT_LIMIT);
+            document.getElementById('stat-credit-avail').innerText = fmt(CREDIT_LIMIT - netFactoryBalance);
+            document.getElementById('stat-shipment-val').innerText = fmt(totalShipmentValue);
+            document.getElementById('stat-total-paid').innerText = fmt(totalPaid);
+            document.getElementById('stat-net-balance').innerText = fmt(netFactoryBalance);
         }
 
-        function updateShipQty(id, val) {
-            const order = orders.find(o => o.id === id);
-            if (order) {
-                let qty = parseInt(val) || 0;
-                if (qty > (order.readyQty || 0)) {
-                    alert('الكمية المختارة للشحن لا يمكن أن تتجاوز الكمية الجاهزة بالمصنع!');
-                    document.getElementById(`ship-qty-${id}`).value = order.shipQty || 0;
-                    return;
+        // =====================================================================
+        // SECTION: ORDER ACTIONS (حالة، شحن، استلام، مشكلة، حذف)
+        // =====================================================================
+        async function updateOrderStatus(id, status) {
+            await mutate(['orders'], () => {
+                const o = orders.find(x => x.id === id);
+                if (!o) return false;
+                o.status = status;
+            });
+        }
+
+        async function updateShipQty(id, val) {
+            const qty = parseInt(val) || 0;
+            await mutate(['orders'], () => {
+                const order = orders.find(o => o.id === id);
+                if (!order) return false;
+                if (qty < 0 || qty > (order.readyQty || 0)) {
+                    toast('الكمية المختارة للشحن لا يمكن أن تتجاوز الكمية الجاهزة بالمصنع', 'warn');
+                    return false;
                 }
                 order.shipQty = qty;
-                saveCloudData();
-                renderOrders();
-            }
+            });
         }
 
-        function shipSelected(id) {
-            const order = orders.find(o => o.id === id);
-            if (!order || !order.shipQty || order.shipQty <= 0) {
-                alert('الرجاء إدخال الكمية المختارة للشحن أولاً!');
-                return;
-            }
-
-            let shipAmount = order.shipQty;
-
-            if (shipAmount >= order.qty) {
-                // شحن كامل الكمية وتغيير حالتها إلى في البحر
-                order.status = 'في البحر';
-                order.readyQty = 0;
-                order.shipQty = 0;
-            } else {
-                // شحن جزئي: إنشاء طلبية جديدة لشحنة "في البحر" وإنقاصها من الطلبية الأساسية
-                orders.push({
-                    id: Date.now() + Math.random(),
-                    sku: order.sku,
-                    nameAr: order.nameAr,
-                    nameEn: order.nameEn,
-                    qty: shipAmount,
-                    readyQty: shipAmount,
-                    shipQty: shipAmount,
-                    price: order.price,
-                    status: 'في البحر',
-                    image: order.image
-                });
-
-                // تحديث الطلبية الأصلية
-                order.qty -= shipAmount;
-                order.readyQty -= shipAmount;
-                order.shipQty = 0;
-            }
-
-            saveCloudData();
-            renderOrders();
-            alert('تم ترحيل الكمية المختارة إلى قسم "في البحر" بنجاح وتم خصمها من الطلبية الأساسية!');
+        async function shipSelected(id) {
+            let done = false;
+            await mutate(['orders'], () => {
+                const order = orders.find(o => o.id === id);
+                if (!order || !order.shipQty || order.shipQty <= 0) {
+                    toast('الرجاء إدخال الكمية المختارة للشحن أولاً', 'warn');
+                    return false;
+                }
+                const shipAmount = order.shipQty;
+                if (shipAmount >= order.qty) {
+                    order.status = 'في البحر';
+                    order.readyQty = 0;
+                    order.shipQty = 0;
+                } else {
+                    orders.push({
+                        id: newId(),
+                        sku: order.sku,
+                        nameAr: order.nameAr,
+                        nameEn: order.nameEn,
+                        qty: shipAmount,
+                        readyQty: shipAmount,
+                        shipQty: shipAmount,
+                        price: order.price,
+                        status: 'في البحر',
+                        image: order.image
+                    });
+                    order.qty -= shipAmount;
+                    order.readyQty = Math.max(0, (order.readyQty || 0) - shipAmount);
+                    order.shipQty = 0;
+                }
+                done = true;
+            });
+            if (done) toast('تم ترحيل الكمية إلى "في البحر" وخصمها من الطلبية الأساسية');
         }
 
-        function receiveShipment(id) {
-            const order = orders.find(o => o.id === id);
-            if (order) {
-                order.status = 'مستلمة';
-                saveCloudData();
-                renderOrders();
-                alert("تم استلام الشحنة وترحيلها بنجاح!");
-            }
+        async function receiveShipment(id) {
+            const ok = await mutate(['orders'], () => {
+                const o = orders.find(x => x.id === id);
+                if (!o) return false;
+                o.status = 'مستلمة';
+            });
+            if (ok) toast('تم استلام الشحنة');
         }
 
-        function markIssue(id) {
-            const order = orders.find(o => o.id === id);
-            if (order) {
-                order.status = 'مستلمة بها مشكلة';
-                saveCloudData();
-                renderOrders();
-                alert("تم الإبلاغ عن مشكلة ليراجعها جيمس!");
-            }
+        async function markIssue(id) {
+            const ok = await mutate(['orders'], () => {
+                const o = orders.find(x => x.id === id);
+                if (!o) return false;
+                o.status = 'مستلمة بها مشكلة';
+            });
+            if (ok) toast('تم الإبلاغ عن المشكلة ليراجعها جيمس');
         }
 
-        function deleteOrder(id) {
-            if (confirm("هل أنت متأكد من الحذف؟")) {
+        async function deleteOrder(id) {
+            if (!confirm("هل أنت متأكد من الحذف؟")) return;
+            const ok = await mutate(['orders'], () => {
                 orders = orders.filter(o => o.id !== id);
-                saveCloudData();
-                renderOrders();
-                alert("تم الحذف بنجاح!");
-            }
+            });
+            if (ok) toast('تم الحذف');
         }
 
+        async function updateJamesData(id) {
+            const priceVal = parseFloat(document.getElementById(`price-${id}`).value);
+            const readyQty = parseInt(document.getElementById(`ready-${id}`).value) || 0;
+            const ok = await mutate(['orders'], () => {
+                const order = orders.find(o => o.id === id);
+                if (!order) return false;
+                if (!isNaN(priceVal)) order.price = priceVal;
+                order.readyQty = readyQty;
+                if (readyQty >= order.qty) order.status = 'بضائع جاهزة';
+            });
+            if (ok) toast('Updated successfully');
+        }
+
+        // =====================================================================
+        // SECTION: EXCEL IMPORT
+        // يقرأ العناوين إن وُجدت (Item No / Description / Qty / Price)
+        // وإلا يستخدم المواضع القديمة (A=SKU, B=وصف, D=كمية, E=سعر)
+        // الاستيراد يضيف فقط، ولا يحذف أو يغيّر أي بيانات موجودة
+        // =====================================================================
         function promptExcelImportType(e) {
             pendingImportEvent = e;
             const choice = prompt("اختر نوع الاستيراد:\n1 - كتالوج فقط\n2 - طلبية جديدة\nاكتب 1 أو 2:", "1");
-            if (!choice) return;
+            if (!choice || !['1', '2'].includes(choice.trim())) {
+                e.target.value = '';
+                return;
+            }
             processExcelImport(pendingImportEvent, choice.trim() === '1', 'معلقة');
         }
 
-        function processExcelImport(e, isCatalogOnly, targetStatus) {
-            const file = e.target.files[0];
+        function detectColumns(headerRow) {
+            const cols = { sku: 0, desc: 1, qty: 3, price: 4 };
+            let found = false;
+            (headerRow || []).forEach((cell, i) => {
+                const t = String(cell || '').toLowerCase().trim();
+                if (!t) return;
+                if (/^(item\s*no|sku|item\s*code|رقم)/.test(t)) { cols.sku = i; found = true; }
+                else if (/(desc|name|وصف|اسم)/.test(t)) { cols.desc = i; found = true; }
+                else if (/(qty|quantity|كمية)/.test(t)) { cols.qty = i; found = true; }
+                else if (/(price|سعر)/.test(t)) { cols.price = i; found = true; }
+            });
+            return { cols, found };
+        }
+
+        function processExcelImport(ev, isCatalogOnly, targetStatus) {
+            const input = ev.target;
+            const file = input.files[0];
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function (loadEv) {
                 try {
-                    const data = new Uint8Array(e.target.result);
+                    const data = new Uint8Array(loadEv.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
                     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                    let addedCount = 0;
-                    for (let i = 0; i < json.length; i++) {
-                        const row = json[i];
-                        if (!row || row.length === 0) continue;
-                        const sku = String(row[0] || '').trim();
-                        if (!sku || sku.toLowerCase() === 'item no' || sku.toLowerCase() === 'sku') continue;
+                    const { cols } = detectColumns(json[0]);
+                    let addedCount = 0, skipped = 0;
 
-                        const rawDesc = String(row[1] || sku).trim();
-                        const qty = parseInt(row[3] || 100);
-                        const price = parseFloat(row[4] || 0);
-                        const translation = autoTranslate(sku, rawDesc);
+                    const ok = await mutate(['orders', 'catalog'], () => {
+                        for (let i = 0; i < json.length; i++) {
+                            const row = json[i];
+                            if (!row || row.length === 0) continue;
+                            const sku = String(row[cols.sku] || '').trim();
+                            if (!sku || ['item no', 'sku', 'item code'].includes(sku.toLowerCase())) continue;
 
-                        let existingCatalog = catalog.find(c => c.sku === sku);
-                        if (!existingCatalog) {
-                            catalog.push({ id: Date.now() + Math.random(), sku, nameAr: translation.ar, nameEn: translation.en, cbm: 0.01, weight: 0.5, image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=150' });
+                            const rawDesc = String(row[cols.desc] || sku).trim();
+                            const qty = parseInt(row[cols.qty]);
+                            const price = parseFloat(row[cols.price]);
+
+                            if (!isCatalogOnly && (isNaN(qty) || qty <= 0)) { skipped++; continue; }
+
+                            const translation = autoTranslate(sku, rawDesc);
+                            let existingCatalog = catalog.find(c => c.sku === sku);
+                            if (!existingCatalog) {
+                                catalog.push({ id: newId(), sku, nameAr: translation.ar, nameEn: translation.en, cbm: 0.01, weight: 0.5, image: DEFAULT_IMG });
+                            }
+
+                            if (!isCatalogOnly) {
+                                orders.push({
+                                    id: newId(),
+                                    sku,
+                                    nameAr: translation.ar,
+                                    nameEn: translation.en,
+                                    qty,
+                                    readyQty: 0,
+                                    shipQty: 0,
+                                    price: isNaN(price) ? 0 : price,
+                                    status: targetStatus,
+                                    image: existingCatalog ? existingCatalog.image : DEFAULT_IMG
+                                });
+                            }
+                            addedCount++;
                         }
-
-                        if (!isCatalogOnly) {
-                            orders.push({
-                                id: Date.now() + Math.random(),
-                                sku,
-                                nameAr: translation.ar,
-                                nameEn: translation.en,
-                                qty: isNaN(qty) ? 100 : qty,
-                                readyQty: 0,
-                                shipQty: 0,
-                                price: isNaN(price) ? 0 : price,
-                                status: targetStatus,
-                                image: existingCatalog ? existingCatalog.image : 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=150'
-                            });
-                        }
-                        addedCount++;
-                    }
-                    saveCloudData();
-                    renderOrders();
-                    alert(`تم الاستيراد بنجاح (${addedCount} صنف)!`);
+                    });
+                    if (ok) toast(`تم الاستيراد (${addedCount} صنف)` + (skipped ? ` — تم تخطي ${skipped} صف بدون كمية صحيحة` : ''), skipped ? 'warn' : 'ok');
                 } catch (err) {
-                    alert('خطأ في قراءة ملف الإكسل.');
+                    console.error(err);
+                    toast('خطأ في قراءة ملف الإكسل', 'error');
                 }
+                input.value = '';
             };
             reader.readAsArrayBuffer(file);
         }
 
+        // =====================================================================
+        // SECTION: NEW ORDER MODAL
+        // =====================================================================
         function openNewOrderModal() {
             const select = document.getElementById('select-catalog-sku');
             select.innerHTML = '<option value="">-- اختر من الكتالوج المسجل --</option>';
@@ -643,7 +740,10 @@
             document.getElementById('new-order-modal').classList.add('flex');
         }
 
-        function closeNewOrderModal() { document.getElementById('new-order-modal').classList.add('hidden'); }
+        function closeNewOrderModal() {
+            document.getElementById('new-order-modal').classList.add('hidden');
+            document.getElementById('new-order-modal').classList.remove('flex');
+        }
 
         function onSelectCatalogItem(sku) {
             const item = catalog.find(c => c.sku === sku);
@@ -663,18 +763,19 @@
             const status = document.getElementById('order-status').value;
             const fileInput = document.getElementById('order-image-file');
 
-            const proceedSave = (imageUrl) => {
-                let finalImage = imageUrl || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=150';
-                let existingCatalog = catalog.find(c => c.sku === sku);
-                if (!existingCatalog) {
-                    catalog.push({ id: Date.now(), sku, nameAr, nameEn, cbm: 0.01, weight: 0.5, image: finalImage });
+            const proceedSave = async (imageUrl) => {
+                const finalImage = imageUrl || DEFAULT_IMG;
+                const ok = await mutate(['orders', 'catalog'], () => {
+                    if (!catalog.find(c => c.sku === sku)) {
+                        catalog.push({ id: newId(), sku, nameAr, nameEn, cbm: 0.01, weight: 0.5, image: finalImage });
+                    }
+                    orders.push({ id: newId(), sku, nameAr, nameEn, qty, readyQty: 0, shipQty: 0, price: 0, status, image: finalImage });
+                });
+                if (ok) {
+                    closeNewOrderModal();
+                    e.target.reset();
+                    toast('تمت إضافة الطلبية');
                 }
-
-                orders.push({ id: Date.now(), sku, nameAr, nameEn, qty, readyQty: 0, shipQty: 0, price: 0, status, image: finalImage });
-                saveCloudData();
-                closeNewOrderModal();
-                renderOrders();
-                alert('تمت إضافة الطلبية بنجاح!');
             };
 
             if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -684,42 +785,31 @@
             } else { proceedSave(null); }
         }
 
-        function updateJamesData(id) {
-            const order = orders.find(o => o.id === id);
-            const price = parseFloat(document.getElementById(`price-${id}`).value);
-            const readyQty = parseInt(document.getElementById(`ready-${id}`).value) || 0;
-
-            if (!isNaN(price)) order.price = price;
-            order.readyQty = readyQty;
-            if (readyQty >= order.qty) order.status = 'بضائع جاهزة';
-
-            saveCloudData();
-            renderOrders();
-            alert('Updated successfully!');
-        }
-
+        // =====================================================================
+        // SECTION: CATALOG MODAL
+        // =====================================================================
         function openCatalogModal() {
             const grid = document.getElementById('catalog-grid');
             grid.innerHTML = '';
-            
+
             catalog.forEach((item, index) => {
                 const card = document.createElement('div');
                 card.className = 'bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4 shadow-xs';
                 card.innerHTML = `
                     <div class="flex flex-col items-center gap-2">
-                        <img src="${item.image}" class="w-16 h-16 object-cover rounded-xl border border-slate-200">
+                        <img src="${esc(item.image)}" class="w-16 h-16 object-cover rounded-xl border border-slate-200">
                     </div>
                     <div class="flex-1 space-y-2 text-xs w-full">
-                        <div class="font-mono text-red-600 font-bold text-sm">SKU: ${item.sku}</div>
+                        <div class="font-mono text-red-600 font-bold text-sm">SKU: ${esc(item.sku)}</div>
                         <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                            <input type="text" id="cat-ar-${index}" value="${item.nameAr}" class="bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-medium" placeholder="اسم المادة">
-                            <input type="text" id="cat-en-${index}" value="${item.nameEn || ''}" class="bg-white border border-slate-200 px-3 py-1.5 rounded-xl" placeholder="English Name">
+                            <input type="text" id="cat-ar-${index}" value="${esc(item.nameAr)}" class="bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-medium" placeholder="اسم المادة">
+                            <input type="text" id="cat-en-${index}" value="${esc(item.nameEn || '')}" class="bg-white border border-slate-200 px-3 py-1.5 rounded-xl" placeholder="English Name">
                             <input type="number" step="0.001" id="cat-cbm-${index}" value="${item.cbm || 0.01}" class="bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-bold text-blue-600" placeholder="حجم القطعة CBM">
                             <input type="number" step="0.01" id="cat-weight-${index}" value="${item.weight || 0.5}" class="bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-bold text-emerald-600" placeholder="وزن القطعة (KG)">
                         </div>
                     </div>
                     <div>
-                        <button onclick="saveCatalogEdit(${index}, '${item.sku}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-xl font-medium shadow-sm">حفظ</button>
+                        <button onclick="saveCatalogEdit(${index}, '${encodeURIComponent(item.sku)}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-xl font-medium shadow-sm">حفظ</button>
                     </div>
                 `;
                 grid.appendChild(card);
@@ -728,48 +818,63 @@
             document.getElementById('catalog-modal').classList.add('flex');
         }
 
-        function closeCatalogModal() { document.getElementById('catalog-modal').classList.add('hidden'); }
+        function closeCatalogModal() {
+            document.getElementById('catalog-modal').classList.add('hidden');
+            document.getElementById('catalog-modal').classList.remove('flex');
+        }
 
-        function saveCatalogEdit(index, sku) {
+        async function saveCatalogEdit(index, encSku) {
+            const sku = decodeURIComponent(encSku);
             const nameAr = document.getElementById(`cat-ar-${index}`).value;
             const nameEn = document.getElementById(`cat-en-${index}`).value;
             const cbm = parseFloat(document.getElementById(`cat-cbm-${index}`).value) || 0;
             const weight = parseFloat(document.getElementById(`cat-weight-${index}`).value) || 0;
 
-            const item = catalog.find(c => c.sku === sku);
-            if (item) {
+            const ok = await mutate(['catalog'], () => {
+                const item = catalog.find(c => c.sku === sku);
+                if (!item) return false;
                 item.nameAr = nameAr;
                 item.nameEn = nameEn;
                 item.cbm = cbm;
                 item.weight = weight;
-            }
-            saveCloudData();
-            renderOrders();
-            alert('تم حفظ أبعاد المادة (CBM والوزن) بنجاح!');
-            openCatalogModal();
+            });
+            if (ok) toast('تم حفظ أبعاد المادة (CBM والوزن)');
         }
 
+        // =====================================================================
+        // SECTION: PAYMENTS
+        // =====================================================================
         function openPaymentModal() {
             document.getElementById('pay-date').valueAsDate = new Date();
             document.getElementById('payment-modal').classList.remove('hidden');
             document.getElementById('payment-modal').classList.add('flex');
         }
 
-        function closePaymentModal() { document.getElementById('payment-modal').classList.add('hidden'); }
+        function closePaymentModal() {
+            document.getElementById('payment-modal').classList.add('hidden');
+            document.getElementById('payment-modal').classList.remove('flex');
+        }
 
-        function savePayment(e) {
+        async function savePayment(e) {
             e.preventDefault();
             const amount = parseFloat(document.getElementById('pay-amount').value);
             const date = document.getElementById('pay-date').value;
             const receipt = document.getElementById('pay-receipt').value;
+            if (isNaN(amount) || amount <= 0) { toast('أدخل مبلغاً صحيحاً', 'warn'); return; }
 
-            payments.push({ id: Date.now(), amount, date, receipt });
-            saveCloudData();
-            closePaymentModal();
-            renderOrders();
-            alert('تم حفظ الدفعة بنجاح!');
+            const ok = await mutate(['payments'], () => {
+                payments.push({ id: newId(), amount, date, receipt });
+            });
+            if (ok) {
+                closePaymentModal();
+                e.target.reset();
+                toast('تم حفظ الدفعة');
+            }
         }
 
+        // =====================================================================
+        // SECTION: EXPORTS (PDF + نسخة احتياطية JSON)
+        // =====================================================================
         function exportPDFReport() {
             const element = document.getElementById('pdf-report-content');
             const opt = {
@@ -782,14 +887,77 @@
             html2pdf().from(element).set(opt).save();
         }
 
-        fetchCloudData();
+        function exportBackup() {
+            const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), orders, payments, catalog }, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'BF_Tools_Backup_' + new Date().toISOString().slice(0, 10) + '.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast('تم تنزيل النسخة الاحتياطية');
+        }
 
-        supabaseClient
-            .channel('public:app_data')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'app_data' }, payload => {
-                fetchCloudData();
-            })
-            .subscribe();
+        // =====================================================================
+        // SECTION: INIT + REALTIME
+        // =====================================================================
+        // =====================================================================
+        // SECTION: AUTH (تسجيل الدخول - الدور يأتي من جدول profiles وليس من قائمة)
+        // =====================================================================
+        let appStarted = false;
+
+        function showLoginError(msg) {
+            const el = document.getElementById('login-error');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        async function doLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn');
+            btn.disabled = true;
+            document.getElementById('login-error').classList.add('hidden');
+            const { error } = await supabaseClient.auth.signInWithPassword({
+                email: document.getElementById('login-email').value.trim(),
+                password: document.getElementById('login-password').value
+            });
+            btn.disabled = false;
+            if (error) { showLoginError('Wrong email or password / البريد أو كلمة المرور غير صحيحة'); return; }
+            await startSession();
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            location.reload();
+        }
+
+        async function startSession() {
+            const { data: sess } = await supabaseClient.auth.getSession();
+            if (!sess.session) return; // يبقى شباك الدخول ظاهراً
+
+            const { data: prof, error } = await supabaseClient
+                .from('profiles').select('role').eq('id', sess.session.user.id).maybeSingle();
+            if (error || !prof || !['Ahmad', 'Bakri', 'James'].includes(prof.role)) {
+                showLoginError('No role assigned to this account / لا يوجد دور لهذا الحساب، راجع المدير');
+                await supabaseClient.auth.signOut();
+                return;
+            }
+
+            currentRole = prof.role;
+            document.getElementById('role-name').innerText =
+                prof.role === 'Ahmad' ? 'أحمد (مدير)' : prof.role === 'Bakri' ? 'بكري (إدخال)' : 'James (Supplier)';
+            document.getElementById('login-overlay').classList.add('hidden');
+
+            await fetchCloudData();
+            if (!appStarted) {
+                appStarted = true;
+                supabaseClient
+                    .channel('public:app_data')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_data' }, () => { fetchCloudData(); })
+                    .subscribe();
+            }
+        }
+
+        startSession();
     </script>
 </body>
 </html>
